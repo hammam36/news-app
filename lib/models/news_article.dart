@@ -1,4 +1,3 @@
-
 class NewsArticle {
   final String? title;
   final String? description;

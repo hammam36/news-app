@@ -41,6 +41,9 @@ dependencies:
   cached_network_image: ^3.4.1
   timeago: ^3.7.1
   flutter_dotenv: ^5.2.1
+  flutter_tailwind: ^1.0.0  # Untuk utility classes seperti Tailwind CSS
+  google_fonts: ^6.1.0      # Untuk typography yang lebih bagus
+  shimmer: ^3.0.0           # Untuk loading animation yang modern
 
 
 dev_dependencies:
