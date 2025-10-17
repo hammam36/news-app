@@ -3,7 +3,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:news_app/bindings/app_binding.dart';
 import 'package:news_app/routes/app_pages.dart';
-import 'package:news_app/utils/app_colors.dart';
+// import 'package:news_app/utils/app_colors.dart';
+import 'package:news_app/theme/app_theme.dart';
+import 'package:news_app/theme/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,73 +23,33 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'Modern News',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          brightness: Brightness.light,
-          primary: AppColors.primary,
-          secondary: AppColors.secondary,
-          surface: AppColors.surface,
-          background: AppColors.background,
-          error: AppColors.error,
-        ),
-        scaffoldBackgroundColor: AppColors.background,
-        fontFamily: 'SF Pro Display',
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
-          ),
-          iconTheme: IconThemeData(color: AppColors.textPrimary),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          color: AppColors.surface,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: AppColors.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: AppColors.primary, width: 2),
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       initialRoute: AppPages.INITIAL,
       getPages: AppPages.routes,
-      initialBinding: AppBindings(),
+      initialBinding: AppBindings(), // Binding akan initialize ThemeController
       debugShowCheckedModeBanner: false,
+      // FIX: Gunakan approach yang lebih simple dan reliable
+      builder: (context, child) {
+        return Obx(() {
+          // Cek jika ThemeController sudah ter-register
+          if (Get.isRegistered<ThemeController>()) {
+            final themeController = Get.find<ThemeController>();
+            return Theme(
+              data: themeController.isDarkMode.value ? AppTheme.darkTheme : AppTheme.lightTheme,
+              child: child!,
+            );
+          } else {
+            // Fallback ke system theme jika controller belum ready
+            final systemDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
+            return Theme(
+              data: systemDark ? AppTheme.darkTheme : AppTheme.lightTheme,
+              child: child!,
+            );
+          }
+        });
+      },
     );
   }
 }

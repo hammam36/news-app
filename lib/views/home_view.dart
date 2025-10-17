@@ -6,8 +6,12 @@ import 'package:news_app/utils/app_colors.dart';
 import 'package:news_app/widgets/news_card.dart';
 import 'package:news_app/widgets/category_chip.dart';
 import 'package:news_app/widgets/loading_shimmer.dart';
+import 'package:news_app/theme/theme_controller.dart';
 
 class HomeView extends GetView<NewsController> {
+  // STATE BARU: Untuk kontrol tampilan explore topics
+  final RxBool _showExploreTopics = false.obs;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -23,7 +27,11 @@ class HomeView extends GetView<NewsController> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildEnhancedAppBar(context, isDark),
-              _buildCategoriesSection(context, isDark),
+              // SECTION EXPLORE TOPICS - Hanya tampil jika _showExploreTopics true
+              Obx(() => _showExploreTopics.value 
+                ? _buildCategoriesSection(context, isDark)
+                : _buildShowTopicsPrompt(context, isDark)
+              ),
               _buildNewsSection(context, isDark),
               _buildBottomSpacing(context),
             ],
@@ -31,6 +39,95 @@ class HomeView extends GetView<NewsController> {
         ],
       ),
       floatingActionButton: _buildFloatingSearchButton(context, isDark),
+    );
+  }
+
+  // METHOD BARU: Prompt untuk menampilkan explore topics
+  Widget _buildShowTopicsPrompt(BuildContext context, bool isDark) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+        child: GestureDetector(
+          onTap: () {
+            _showExploreTopics.value = true;
+          },
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppColors.getCardGradient(context),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.getBorder(context).withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark 
+                    ? Colors.black.withOpacity(0.3)
+                    : AppColors.shadow.withOpacity(0.1),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.explore_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Jelajahi Topik Berita',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.getTextPrimary(context),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ketuk untuk melihat berbagai kategori berita yang tersedia',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.getTextSecondary(context),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -190,6 +287,8 @@ class HomeView extends GetView<NewsController> {
                           ],
                         ),
                       ),
+                      // THEME TOGGLE BUTTON
+                      _buildThemeToggleButton(context),
                     ],
                   ),
                 ],
@@ -199,6 +298,70 @@ class HomeView extends GetView<NewsController> {
         ),
       ),
     );
+  }
+
+  Widget _buildThemeToggleButton(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: isDark 
+                ? AppColors.primaryGradient
+                : LinearGradient(
+                    colors: [Colors.grey[300]!, Colors.grey[400]!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                  ? AppColors.primary.withOpacity(0.4)
+                  : Colors.grey[500]!.withOpacity(0.3),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: () {
+              if (Get.isRegistered<ThemeController>()) {
+                final themeController = Get.find<ThemeController>();
+                themeController.toggleTheme();
+              } else {
+                print('ThemeController not registered yet');
+              }
+            },
+            icon: Obx(() {
+              if (Get.isRegistered<ThemeController>()) {
+                final themeController = Get.find<ThemeController>();
+                return Icon(
+                  themeController.isDarkMode.value 
+                    ? Icons.light_mode_rounded 
+                    : Icons.dark_mode_rounded,
+                  color: Colors.white,
+                  size: 22,
+                );
+              } else {
+                return Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: Colors.white,
+                  size: 22,
+                );
+              }
+            }),
+          ),
+        ),
+      );
+    },
+  );
   }
 
   Widget _buildCategoriesSection(BuildContext context, bool isDark) {
@@ -241,6 +404,24 @@ class HomeView extends GetView<NewsController> {
                         color: Colors.white,
                         letterSpacing: -0.5,
                       ),
+                    ),
+                  ),
+                ),
+                // TOMBOL TUTUP EXPLORE TOPICS (BARU)
+                GestureDetector(
+                  onTap: () {
+                    _showExploreTopics.value = false;
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[800] : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.getTextPrimary(context),
+                      size: 18,
                     ),
                   ),
                 ),

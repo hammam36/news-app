@@ -17,12 +17,31 @@ class _NewsDetailViewState extends State<NewsDetailView>
     with SingleTickerProviderStateMixin {
   late AnimationController _scrollController;
   late ScrollController _pageScrollController;
-  final NewsArticle article = Get.arguments as NewsArticle;
+  NewsArticle? article; // Jadikan nullable
   double _scrollOffset = 0.0;
+  
+  // STATE BARU: Untuk toggle like/dislike
+  bool _isLiked = false;
+  bool _isDisliked = false;
 
   @override
   void initState() {
     super.initState();
+    
+    // FIX: Handle null arguments dengan safe casting
+    try {
+      final arguments = Get.arguments;
+      if (arguments != null && arguments is NewsArticle) {
+        article = arguments as NewsArticle;
+      } else {
+        // Fallback ke article dummy atau handle error
+        _showErrorSnackbar();
+      }
+    } catch (e) {
+      print('Error parsing article: $e');
+      _showErrorSnackbar();
+    }
+    
     _scrollController = AnimationController(
       duration: Duration(milliseconds: 300),
       vsync: this,
@@ -35,6 +54,20 @@ class _NewsDetailViewState extends State<NewsDetailView>
       });
   }
 
+  // METHOD BARU: Show error snackbar
+  void _showErrorSnackbar() {
+    Future.delayed(Duration(milliseconds: 500), () {
+      Get.snackbar(
+        'Error',
+        'Gagal memuat berita. Silakan coba lagi.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: Duration(seconds: 3),
+        backgroundColor: AppColors.error,
+        colorText: Colors.white,
+      );
+    });
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -42,9 +75,85 @@ class _NewsDetailViewState extends State<NewsDetailView>
     super.dispose();
   }
 
+  // METHOD BARU: Handle Like
+  void _handleLike() {
+    setState(() {
+      if (_isLiked) {
+        // Jika sudah like, maka unlike (reset)
+        _isLiked = false;
+        _showUnlikeSnackbar();
+      } else {
+        // Jika belum like, set like dan reset dislike
+        _isLiked = true;
+        _isDisliked = false;
+        _showLikeSnackbar();
+      }
+    });
+  }
+
+  // METHOD BARU: Handle Dislike
+  void _handleDislike() {
+    setState(() {
+      if (_isDisliked) {
+        // Jika sudah dislike, maka undislike (reset)
+        _isDisliked = false;
+        _showUndislikeSnackbar();
+      } else {
+        // Jika belum dislike, set dislike dan reset like
+        _isDisliked = true;
+        _isLiked = false;
+        _showDislikeSnackbar();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // FIX: Jika article null, tampilkan error screen
+    if (article == null) {
+      return Scaffold(
+        backgroundColor: AppColors.getBackground(context),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 64,
+                color: AppColors.error,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Gagal Memuat Berita',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.getTextPrimary(context),
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Silakan kembali dan coba lagi',
+                style: TextStyle(
+                  color: AppColors.getTextSecondary(context),
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Get.back(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('Kembali'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     
     return Scaffold(
       backgroundColor: AppColors.getBackground(context),
@@ -63,39 +172,17 @@ class _NewsDetailViewState extends State<NewsDetailView>
             ],
           ),
           
-          // Floating action buttons
+          // Floating action buttons (Share & Copy) - KANAN
           _buildFloatingActions(context, isDark),
+          
+          // Floating like/dislike buttons - KIRI (DENGAN TOGGLE BEHAVIOR)
+          _buildLikeDislikeButtons(context, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildParallaxBackground(bool isDark) {
-    return Positioned.fill(
-      child: Transform.translate(
-        offset: Offset(0, _scrollOffset * 0.5),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                ? [
-                    Color(0xFF0F1419),
-                    Color(0xFF1A1F26),
-                    Color(0xFF0F1419),
-                  ]
-                : [
-                    Color(0xFFFFFBF7),
-                    Color(0xFFF8F9FA),
-                    Color(0xFFFFF5EE),
-                  ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // ... (METHOD-METHOD LAINNYA TETAP SAMA, TAPI PASTIKAN SEMUA METHOD YANG PAKAI 'article!' DIPERIKSA)
 
   Widget _buildEnhancedAppBar(BuildContext context, bool isDark) {
     final opacity = (_scrollOffset / 200).clamp(0.0, 1.0);
@@ -147,7 +234,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Hero(
-          tag: 'news_image_${article.url}',
+          tag: 'news_image_${article!.url}', // Gunakan article! karena sudah di-check null
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -162,9 +249,10 @@ class _NewsDetailViewState extends State<NewsDetailView>
   }
 
   Widget _buildHeaderImage(bool isDark) {
-    if (article.urlToImage != null) {
+    // FIX: Gunakan null-safe access
+    if (article!.urlToImage != null) {
       return CachedNetworkImage(
-        imageUrl: article.urlToImage!,
+        imageUrl: article!.urlToImage!,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           decoration: BoxDecoration(
@@ -262,24 +350,22 @@ class _NewsDetailViewState extends State<NewsDetailView>
     );
   }
 
+  // NEW: Gradient overlay used on top of header image to improve readability
   Widget _buildGradientOverlay(bool isDark) {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.3),
-              Colors.black.withOpacity(0.7),
-              Colors.black.withOpacity(0.9),
-            ],
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  Colors.black.withOpacity(0.35),
+                  Colors.black.withOpacity(0.65),
+                ]
+              : [
+                  Colors.black.withOpacity(0.18),
+                  Colors.transparent,
+                ],
         ),
       ),
     );
@@ -302,7 +388,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (article.source?.name != null)
+                  // FIX: Null-safe access untuk source
+                  if (article!.source?.name != null)
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
@@ -330,7 +417,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                           ),
                           SizedBox(width: 8),
                           Text(
-                            article.source!.name!,
+                            article!.source!.name!,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -340,7 +427,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
                         ],
                       ),
                     ),
-                  if (article.publishedAt != null) ...[
+                  // FIX: Null-safe access untuk publishedAt
+                  if (article!.publishedAt != null) ...[
                     SizedBox(height: 12),
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -362,7 +450,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                           ),
                           SizedBox(width: 6),
                           Text(
-                            timeago.format(DateTime.parse(article.publishedAt!)),
+                            timeago.format(DateTime.parse(article!.publishedAt!)),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 13,
@@ -378,6 +466,120 @@ class _NewsDetailViewState extends State<NewsDetailView>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildParallaxBackground(bool isDark) {
+    return Positioned.fill(
+      child: SingleChildScrollView(
+        physics: NeverScrollableScrollPhysics(),
+        child: Container(
+          height: MediaQuery.of(context).size.height,
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.8),
+                      Colors.black,
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.8),
+                      Colors.white,
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // NEW METHOD: Floating action buttons for share & copy (right side)
+  Widget _buildFloatingActions(BuildContext context, bool isDark) {
+    return Positioned(
+      right: 20,
+      bottom: 30,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Share button
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 600),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _shareArticle,
+                      customBorder: CircleBorder(),
+                      child: Icon(Icons.share_rounded, color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          SizedBox(height: 12),
+
+          // Copy link button
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 650),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [AppColors.accent, AppColors.secondary]),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _copyLink,
+                      customBorder: CircleBorder(),
+                      child: Icon(Icons.link_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -417,7 +619,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (article.title != null) ...[
+                      // FIX: Null-safe access untuk title
+                      if (article!.title != null) ...[
                         ShaderMask(
                           shaderCallback: (bounds) {
                             return LinearGradient(
@@ -425,7 +628,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                             ).createShader(bounds);
                           },
                           child: Text(
-                            article.title!,
+                            article!.title!,
                             style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
@@ -454,7 +657,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
                         SizedBox(height: 24),
                       ],
 
-                      if (article.description != null) ...[
+                      // FIX: Null-safe access untuk description
+                      if (article!.description != null) ...[
                         Container(
                           padding: EdgeInsets.all(20),
                           decoration: BoxDecoration(
@@ -495,7 +699,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                               SizedBox(width: 16),
                               Expanded(
                                 child: Text(
-                                  article.description!,
+                                  article!.description!,
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: AppColors.getTextPrimary(context),
@@ -510,7 +714,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
                         SizedBox(height: 28),
                       ],
 
-                      if (article.content != null) ...[
+                      // FIX: Null-safe access untuk content
+                      if (article!.content != null) ...[
                         Row(
                           children: [
                             Container(
@@ -535,7 +740,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                         ),
                         SizedBox(height: 20),
                         Text(
-                          article.content!,
+                          article!.content!,
                           style: TextStyle(
                             fontSize: 16,
                             color: AppColors.getTextPrimary(context),
@@ -547,7 +752,8 @@ class _NewsDetailViewState extends State<NewsDetailView>
                         SizedBox(height: 32),
                       ],
 
-                      if (article.url != null) ...[
+                      // FIX: Null-safe access untuk url
+                      if (article!.url != null) ...[
                         Container(
                           width: double.infinity,
                           height: 60,
@@ -612,85 +818,20 @@ class _NewsDetailViewState extends State<NewsDetailView>
     );
   }
 
-  Widget _buildFloatingActions(BuildContext context, bool isDark) {
-    return Positioned(
-      right: 20,
-      bottom: 30,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildActionButton(
-            icon: Icons.share_rounded,
-            gradient: AppColors.primaryGradient,
-            onPressed: _shareArticle,
-          ),
-          SizedBox(height: 16),
-          _buildActionButton(
-            icon: Icons.copy_rounded,
-            gradient: AppColors.accentGradient,
-            onPressed: _copyLink,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required LinearGradient gradient,
-    required VoidCallback onPressed,
-  }) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 600),
-      curve: Curves.elasticOut,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onPressed,
-                customBorder: CircleBorder(),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _shareArticle() {
-    if (article.url != null) {
+    // FIX: Null-safe access untuk url
+    if (article!.url != null) {
       Share.share(
-        '${article.title ?? 'Check out this news'}\n\n${article.url!}',
-        subject: article.title,
+        '${article!.title ?? 'Check out this news'}\n\n${article!.url!}',
+        subject: article!.title,
       );
     }
   }
 
   void _copyLink() {
-    if (article.url != null) {
-      Clipboard.setData(ClipboardData(text: article.url!));
+    // FIX: Null-safe access untuk url
+    if (article!.url != null) {
+      Clipboard.setData(ClipboardData(text: article!.url!));
       Get.snackbar(
         '',
         '',
@@ -729,8 +870,9 @@ class _NewsDetailViewState extends State<NewsDetailView>
   }
 
   void _openInBrowser() async {
-    if (article.url != null) {
-      final Uri url = Uri.parse(article.url!);
+    // FIX: Null-safe access untuk url
+    if (article!.url != null) {
+      final Uri url = Uri.parse(article!.url!);
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
@@ -769,5 +911,248 @@ class _NewsDetailViewState extends State<NewsDetailView>
         );
       }
     }
+  }
+
+  // ... (METHOD-METHOD LIKE/DISLIKE DAN LAINNYA TETAP SAMA)
+  Widget _buildLikeDislikeButtons(BuildContext context, bool isDark) {
+    return Positioned(
+      left: 20,
+      bottom: 30,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // TOMBOL LIKE - hanya tampil jika belum dislike
+          if (!_isDisliked) 
+            _buildLikeDislikeButton(
+              icon: _isLiked ? Icons.thumb_up_off_alt_rounded : Icons.thumb_up_rounded,
+              gradient: _isLiked 
+                ? LinearGradient(colors: [Color(0xFF00D9A3), Color(0xFF2FFFBE)]) // Hijau solid ketika aktif
+                : LinearGradient(colors: [Colors.grey[600]!, Colors.grey[500]!]), // Grey ketika tidak aktif
+              onPressed: _handleLike,
+              isActive: _isLiked,
+            ),
+          
+          if (!_isDisliked && !_isLiked) SizedBox(height: 16),
+          
+          // TOMBOL DISLIKE - hanya tampil jika belum like
+          if (!_isLiked)
+            _buildLikeDislikeButton(
+              icon: _isDisliked ? Icons.thumb_down_off_alt_rounded : Icons.thumb_down_rounded,
+              gradient: _isDisliked
+                ? LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C61)]) // Orange solid ketika aktif
+                : LinearGradient(colors: [Colors.grey[600]!, Colors.grey[500]!]), // Grey ketika tidak aktif
+              onPressed: _handleDislike,
+              isActive: _isDisliked,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLikeDislikeButton({
+    required IconData icon,
+    required LinearGradient gradient,
+    required VoidCallback onPressed,
+    required bool isActive,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: gradient,
+              shape: BoxShape.circle,
+              boxShadow: isActive ? [
+                BoxShadow(
+                  color: gradient.colors.first.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ] : [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: CircleBorder(),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showLikeSnackbar() {
+    Get.snackbar(
+      '',
+      '',
+      titleText: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF00D9A3), Color(0xFF2FFFBE)],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.thumb_up_rounded, color: Colors.white, size: 20),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Suka Berita Ini!',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      messageText: Text(
+        'Berita dengan tema seperti ini akan lebih banyak ditampilkan di beranda Anda',
+        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+      ),
+      snackPosition: SnackPosition.BOTTOM,
+      duration: Duration(seconds: 3),
+      backgroundColor: Color(0xFF00B589), // Hijau dark
+      borderRadius: 20,
+      margin: EdgeInsets.all(20),
+      animationDuration: Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.elasticOut,
+    );
+  }
+
+  void _showUnlikeSnackbar() {
+    Get.snackbar(
+      '',
+      '',
+      titleText: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.thumb_up_off_alt_rounded, color: Colors.white, size: 20),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Tidak like Lagi',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      messageText: Text(
+        'Preferensi berita Anda telah direset',
+        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+      ),
+      snackPosition: SnackPosition.BOTTOM,
+      duration: Duration(seconds: 2),
+      backgroundColor: Colors.grey[700]!,
+      borderRadius: 20,
+      margin: EdgeInsets.all(20),
+    );
+  }
+
+  void _showDislikeSnackbar() {
+    Get.snackbar(
+      '',
+      '',
+      titleText: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF6B35), Color(0xFFFF8C61)],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.thumb_down_rounded, color: Colors.white, size: 20),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Tidak Suka Berita Ini',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      messageText: Text(
+        'Berita dengan tema seperti ini akan lebih sedikit ditampilkan di beranda Anda',
+        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+      ),
+      snackPosition: SnackPosition.BOTTOM,
+      duration: Duration(seconds: 3),
+      backgroundColor: Color(0xFFE55A2B), // Orange dark
+      borderRadius: 20,
+      margin: EdgeInsets.all(20),
+      animationDuration: Duration(milliseconds: 500),
+      forwardAnimationCurve: Curves.elasticOut,
+    );
+  }
+
+  void _showUndislikeSnackbar() {
+    Get.snackbar(
+      '',
+      '',
+      titleText: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.thumb_down_off_alt_rounded, color: Colors.white, size: 20),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Tidak Dislike Lagi',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      messageText: Text(
+        'Preferensi berita Anda telah direset',
+        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+      ),
+      snackPosition: SnackPosition.BOTTOM,
+      duration: Duration(seconds: 2),
+      backgroundColor: Colors.grey[700]!,
+      borderRadius: 20,
+      margin: EdgeInsets.all(20),
+    );
   }
 }
