@@ -2,10 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:news_app/models/news_response.dart';
 import 'package:news_app/utils/constants.dart';
-
 class NewsService {
+  static const String _apiKey = '3df2904d649547f4b612bc0f2d86ea5d';
   static const String _baseUrl = Constants.baseUrl;
-  static final String _apiKey = Constants.apiKey;
 
   Future<NewsResponse> getTopHeadlines({
     String country = Constants.defaultCountry,

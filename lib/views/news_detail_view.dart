@@ -9,6 +9,8 @@ import 'package:news_app/models/news_article.dart';
 import 'package:news_app/utils/app_colors.dart';
 
 class NewsDetailView extends StatefulWidget {
+  const NewsDetailView({super.key});
+
   @override
   State<NewsDetailView> createState() => _NewsDetailViewState();
 }
@@ -32,7 +34,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
     try {
       final arguments = Get.arguments;
       if (arguments != null && arguments is NewsArticle) {
-        article = arguments as NewsArticle;
+        article = arguments;
       } else {
         // Fallback ke article dummy atau handle error
         _showErrorSnackbar();
@@ -520,7 +522,7 @@ class _NewsDetailViewState extends State<NewsDetailView>
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
+                    gradient: LinearGradient(colors: [AppColors.secondary, AppColors.accent]),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(

@@ -4,7 +4,7 @@ import 'package:news_app/routes/app_routes.dart';
 import 'package:news_app/utils/app_colors.dart';
 
 class SplashView extends StatefulWidget {
-  const SplashView({Key? key}) : super(key: key);
+  const SplashView({super.key});
 
   @override
   _SplashViewState createState() => _SplashViewState();
@@ -262,7 +262,7 @@ class _SplashViewState extends State<SplashView>
                         opacity: _fadeAnimation,
                         child: Column(
                           children: [
-                            Container(
+                            SizedBox(
                               width: 50,
                               height: 50,
                               child: CircularProgressIndicator(

@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -20,6 +17,13 @@
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
+        },
+        {
+            "name": "news_app (Flutter iPhone 16)",
+            "program": "lib/main.dart",
+            "deviceId": "84C59FC2-DF3E-4BDE-AA50-20F118BE749B",
+            "request": "launch",
+            "type": "dart"
         }
     ]
 }

@@ -12,27 +12,31 @@ class HomeView extends GetView<NewsController> {
   // STATE BARU: Untuk kontrol tampilan explore topics
   final RxBool _showExploreTopics = false.obs;
 
+  HomeView({super.key});
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: AppColors.getBackground(context),
       body: Stack(
         children: [
           // Animated mesh gradient background
           _buildAnimatedBackground(context),
-          
+
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildEnhancedAppBar(context, isDark),
               // SECTION EXPLORE TOPICS - Hanya tampil jika _showExploreTopics true
-              Obx(() => _showExploreTopics.value 
-                ? _buildCategoriesSection(context, isDark)
-                : _buildShowTopicsPrompt(context, isDark)
+              Obx(
+                () => _showExploreTopics.value == true
+                    ? _buildCategoriesSection(context, isDark)
+                    : _buildShowTopicsPrompt(context, isDark),
               ),
               _buildNewsSection(context, isDark),
+              _buildPaginationControls(context, isDark),
               _buildBottomSpacing(context),
             ],
           ),
@@ -40,6 +44,256 @@ class HomeView extends GetView<NewsController> {
       ),
       floatingActionButton: _buildFloatingSearchButton(context, isDark),
     );
+  }
+
+  Widget _buildRefreshButton(BuildContext context, bool isDark) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            margin: EdgeInsets.only(
+              right: 12,
+            ), // Spasi antara refresh dan theme toggle
+            decoration: BoxDecoration(
+              gradient: AppColors.accentGradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.secondary.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: IconButton(
+              onPressed: () {
+                // Restart dari splash screen
+                Get.offAllNamed(Routes.SPLASH);
+              },
+              icon: Obx(() {
+                return AnimatedSwitcher(
+                  duration: Duration(milliseconds: 300),
+                  child: controller.isLoading.value
+                      ? SizedBox(
+                          key: ValueKey('loading'),
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          key: ValueKey('refresh'),
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                );
+              }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // METHOD BARU: Pagination Controls
+  Widget _buildPaginationControls(BuildContext context, bool isDark) {
+    return Obx(() {
+      if (controller.articles.isEmpty || controller.isLoading.value) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
+
+      return SliverToBoxAdapter(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: AppColors.getCardGradient(context),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.getBorder(context).withOpacity(0.3),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withOpacity(0.3)
+                    : AppColors.shadow.withOpacity(0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Page Info di atas
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                margin: const EdgeInsets.only(
+                  bottom: 16,
+                ), // tambah margin bawah
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.getBorder(context).withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Page ${controller.currentPage + 1}',
+                      style: TextStyle(
+                        color: AppColors.getTextPrimary(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      '${controller.articles.length} articles',
+                      style: TextStyle(
+                        color: AppColors.getTextSecondary(context),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Buttons di bawah
+              Row(
+                children: [
+                  // Previous Button
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: controller.currentPage > 0
+                            ? AppColors.primaryGradient
+                            : LinearGradient(
+                                colors: [Colors.grey[400]!, Colors.grey[500]!],
+                              ),
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: controller.currentPage > 0
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: ElevatedButton(
+                        onPressed: controller.currentPage > 0
+                            ? controller.previousPage
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.arrow_back_ios_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Previous',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Next Button
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: controller.hasMore
+                            ? AppColors.primaryGradient
+                            : LinearGradient(
+                                colors: [Colors.grey[400]!, Colors.grey[500]!],
+                              ),
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: controller.hasMore
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: ElevatedButton(
+                        onPressed: controller.hasMore
+                            ? controller.nextPage
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Next',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   // METHOD BARU: Prompt untuk menampilkan explore topics
@@ -62,9 +316,9 @@ class HomeView extends GetView<NewsController> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: isDark 
-                    ? Colors.black.withOpacity(0.3)
-                    : AppColors.shadow.withOpacity(0.1),
+                  color: isDark
+                      ? Colors.black.withOpacity(0.3)
+                      : AppColors.shadow.withOpacity(0.1),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -143,21 +397,9 @@ class HomeView extends GetView<NewsController> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: Theme.of(context).brightness == Brightness.dark
-                  ? [
-                      Color(0xFF0F1419),
-                      Color(0xFF1A1F26),
-                      Color(0xFF0F1419),
-                    ]
-                  : [
-                      Color(0xFFFFFBF7),
-                      Color(0xFFF8F9FA),
-                      Color(0xFFFFF5EE),
-                    ],
-                stops: [
-                  0.0,
-                  0.5 + (value * 0.1),
-                  1.0,
-                ],
+                    ? [Color(0xFF0F1419), Color(0xFF1A1F26), Color(0xFF0F1419)]
+                    : [Color(0xFFFFFBF7), Color(0xFFF8F9FA), Color(0xFFFFF5EE)],
+                stops: [0.0, 0.5 + (value * 0.1), 1.0],
               ),
             ),
           );
@@ -216,7 +458,9 @@ class HomeView extends GetView<NewsController> {
                                       offset: const Offset(0, 8),
                                     ),
                                     BoxShadow(
-                                      color: AppColors.secondary.withOpacity(0.2),
+                                      color: AppColors.secondary.withOpacity(
+                                        0.2,
+                                      ),
                                       blurRadius: 30,
                                       offset: const Offset(0, 12),
                                     ),
@@ -248,7 +492,8 @@ class HomeView extends GetView<NewsController> {
                                     offset: Offset(20 * (1 - value), 0),
                                     child: ShaderMask(
                                       shaderCallback: (bounds) {
-                                        return AppColors.heroGradient.createShader(bounds);
+                                        return AppColors.heroGradient
+                                            .createShader(bounds);
                                       },
                                       child: Text(
                                         'All News',
@@ -275,7 +520,9 @@ class HomeView extends GetView<NewsController> {
                                   child: Text(
                                     'Discover stories that matter',
                                     style: TextStyle(
-                                      color: AppColors.getTextSecondary(context),
+                                      color: AppColors.getTextSecondary(
+                                        context,
+                                      ),
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3,
@@ -287,8 +534,18 @@ class HomeView extends GetView<NewsController> {
                           ],
                         ),
                       ),
-                      // THEME TOGGLE BUTTON
-                      _buildThemeToggleButton(context),
+                      // TOMBOL REFRESH BARU + THEME TOGGLE BUTTON
+                      Row(
+                        children: [
+                          _buildRefreshButton(
+                            context,
+                            isDark,
+                          ), // Tombol Refresh baru
+                          _buildThemeToggleButton(
+                            context,
+                          ), // Tombol Theme existing
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -302,7 +559,7 @@ class HomeView extends GetView<NewsController> {
 
   Widget _buildThemeToggleButton(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 600),
@@ -312,56 +569,56 @@ class HomeView extends GetView<NewsController> {
           scale: value,
           child: Container(
             decoration: BoxDecoration(
-              gradient: isDark 
-                ? AppColors.primaryGradient
-                : LinearGradient(
-                    colors: [Colors.grey[300]!, Colors.grey[400]!],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                  ? AppColors.primary.withOpacity(0.4)
-                  : Colors.grey[500]!.withOpacity(0.3),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
+              gradient: isDark
+                  ? AppColors.primaryGradient
+                  : LinearGradient(
+                      colors: [Colors.grey[300]!, Colors.grey[400]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? AppColors.primary.withOpacity(0.4)
+                      : Colors.grey[500]!.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: IconButton(
+              onPressed: () {
+                if (Get.isRegistered<ThemeController>()) {
+                  final themeController = Get.find<ThemeController>();
+                  themeController.toggleTheme();
+                } else {
+                  print('ThemeController not registered yet');
+                }
+              },
+              icon: Obx(() {
+                if (Get.isRegistered<ThemeController>()) {
+                  final themeController = Get.find<ThemeController>();
+                  return Icon(
+                    themeController.isDarkMode.value
+                        ? Icons.light_mode_rounded
+                        : Icons.dark_mode_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  );
+                } else {
+                  return Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  );
+                }
+              }),
+            ),
           ),
-          child: IconButton(
-            onPressed: () {
-              if (Get.isRegistered<ThemeController>()) {
-                final themeController = Get.find<ThemeController>();
-                themeController.toggleTheme();
-              } else {
-                print('ThemeController not registered yet');
-              }
-            },
-            icon: Obx(() {
-              if (Get.isRegistered<ThemeController>()) {
-                final themeController = Get.find<ThemeController>();
-                return Icon(
-                  themeController.isDarkMode.value 
-                    ? Icons.light_mode_rounded 
-                    : Icons.dark_mode_rounded,
-                  color: Colors.white,
-                  size: 22,
-                );
-              } else {
-                return Icon(
-                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                  color: Colors.white,
-                  size: 22,
-                );
-              }
-            }),
-          ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
   }
 
   Widget _buildCategoriesSection(BuildContext context, bool isDark) {
@@ -428,7 +685,7 @@ class HomeView extends GetView<NewsController> {
               ],
             ),
             const SizedBox(height: 20),
-            Container(
+            SizedBox(
               height: 56,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -451,8 +708,10 @@ class HomeView extends GetView<NewsController> {
                             child: Obx(
                               () => CategoryChip(
                                 label: category.capitalize ?? category,
-                                isSelected: controller.selectedCategory == category,
-                                onTap: () => controller.selectCategory(category),
+                                isSelected:
+                                    controller.selectedCategory == category,
+                                onTap: () =>
+                                    controller.selectCategory(category),
                               ),
                             ),
                           ),
@@ -471,7 +730,7 @@ class HomeView extends GetView<NewsController> {
 
   Widget _buildNewsSection(BuildContext context, bool isDark) {
     return Obx(() {
-      if (controller.isLoading) {
+      if (controller.isLoading.value) {
         return SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -493,32 +752,35 @@ class HomeView extends GetView<NewsController> {
       }
 
       return SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final article = controller.articles[index];
-            return TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: Duration(milliseconds: 300 + (index * 100)),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return Transform.translate(
-                  offset: Offset(0, 30 * (1 - value)),
-                  child: Opacity(
-                    opacity: value,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(24, index == 0 ? 0 : 0, 24, 20),
-                      child: NewsCard(
-                        article: article,
-                        onTap: () => Get.toNamed(Routes.NEWS_DETAIL, arguments: article),
-                      ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final article = controller.articles[index];
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 300 + (index * 100)),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, 30 * (1 - value)),
+                child: Opacity(
+                  opacity: value,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      index == 0 ? 0 : 0,
+                      24,
+                      20,
+                    ),
+                    child: NewsCard(
+                      article: article,
+                      onTap: () =>
+                          Get.toNamed(Routes.NEWS_DETAIL, arguments: article),
                     ),
                   ),
-                );
-              },
-            );
-          },
-          childCount: controller.articles.length,
-        ),
+                ),
+              );
+            },
+          );
+        }, childCount: controller.articles.length),
       );
     });
   }
@@ -650,7 +912,10 @@ class HomeView extends GetView<NewsController> {
                   ShaderMask(
                     shaderCallback: (bounds) {
                       return LinearGradient(
-                        colors: [AppColors.error, AppColors.error.withOpacity(0.7)],
+                        colors: [
+                          AppColors.error,
+                          AppColors.error.withOpacity(0.7),
+                        ],
                       ).createShader(bounds);
                     },
                     child: Text(
@@ -681,7 +946,10 @@ class HomeView extends GetView<NewsController> {
                     height: 58,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [AppColors.error, AppColors.error.withOpacity(0.8)],
+                        colors: [
+                          AppColors.error,
+                          AppColors.error.withOpacity(0.8),
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
@@ -704,7 +972,11 @@ class HomeView extends GetView<NewsController> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.refresh_rounded, color: Colors.white, size: 24),
+                          Icon(
+                            Icons.refresh_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             'Retry Connection',
@@ -750,9 +1022,9 @@ class HomeView extends GetView<NewsController> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: isDark 
-                      ? Colors.black.withOpacity(0.4)
-                      : AppColors.shadow.withOpacity(0.15),
+                    color: isDark
+                        ? Colors.black.withOpacity(0.4)
+                        : AppColors.shadow.withOpacity(0.15),
                     blurRadius: 28,
                     offset: const Offset(0, 10),
                   ),
@@ -808,7 +1080,10 @@ class HomeView extends GetView<NewsController> {
                   ),
                   const SizedBox(height: 28),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       gradient: AppColors.accentGradient.scale(0.15),
                       borderRadius: BorderRadius.circular(16),
@@ -858,10 +1133,7 @@ class HomeView extends GetView<NewsController> {
       transitionDuration: Duration(milliseconds: 400),
       pageBuilder: (context, animation, secondaryAnimation) {
         return ScaleTransition(
-          scale: CurvedAnimation(
-            parent: animation,
-            curve: Curves.elasticOut,
-          ),
+          scale: CurvedAnimation(parent: animation, curve: Curves.elasticOut),
           child: Dialog(
             insetPadding: const EdgeInsets.all(24),
             shape: RoundedRectangleBorder(
@@ -880,9 +1152,9 @@ class HomeView extends GetView<NewsController> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: isDark 
-                      ? Colors.black.withOpacity(0.6)
-                      : AppColors.shadowDark.withOpacity(0.3),
+                    color: isDark
+                        ? Colors.black.withOpacity(0.6)
+                        : AppColors.shadowDark.withOpacity(0.3),
                     blurRadius: 40,
                     offset: const Offset(0, 20),
                   ),
@@ -920,7 +1192,10 @@ class HomeView extends GetView<NewsController> {
                             ShaderMask(
                               shaderCallback: (bounds) {
                                 return LinearGradient(
-                                  colors: [AppColors.primary, AppColors.secondary],
+                                  colors: [
+                                    AppColors.primary,
+                                    AppColors.secondary,
+                                  ],
                                 ).createShader(bounds);
                               },
                               child: Text(
@@ -949,9 +1224,7 @@ class HomeView extends GetView<NewsController> {
                   const SizedBox(height: 28),
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark 
-                        ? Colors.grey[900] 
-                        : Colors.grey[100],
+                      color: isDark ? Colors.grey[900] : Colors.grey[100],
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: AppColors.getBorder(context).withOpacity(0.5),
@@ -1001,19 +1274,21 @@ class HomeView extends GetView<NewsController> {
                         child: Container(
                           height: 54,
                           decoration: BoxDecoration(
-                            color: isDark 
-                              ? Colors.grey[800] 
-                              : Colors.grey[200],
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color: AppColors.getBorder(context).withOpacity(0.5),
+                              color: AppColors.getBorder(
+                                context,
+                              ).withOpacity(0.5),
                               width: 1.5,
                             ),
                           ),
                           child: TextButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.getTextSecondary(context),
+                              foregroundColor: AppColors.getTextSecondary(
+                                context,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18),
                               ),
@@ -1047,7 +1322,9 @@ class HomeView extends GetView<NewsController> {
                           child: ElevatedButton(
                             onPressed: () {
                               if (searchController.text.trim().isNotEmpty) {
-                                controller.searchNews(searchController.text.trim());
+                                controller.searchNews(
+                                  searchController.text.trim(),
+                                );
                                 Navigator.of(context).pop();
                               }
                             },

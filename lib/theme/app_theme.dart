@@ -71,10 +71,9 @@ class AppTheme {
       iconTheme: IconThemeData(
         color: AppColors.textPrimary,
       ),
-      dialogBackgroundColor: AppColors.surface,
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
-      ),
+      ), dialogTheme: DialogThemeData(backgroundColor: AppColors.surface),
     );
   }
 
@@ -147,10 +146,9 @@ class AppTheme {
       iconTheme: IconThemeData(
         color: AppColors.textPrimaryDark,
       ),
-      dialogBackgroundColor: AppColors.surfaceDark,
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceDark,
-      ),
+      ), dialogTheme: DialogThemeData(backgroundColor: AppColors.surfaceDark),
     );
   }
 

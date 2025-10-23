@@ -8,8 +8,7 @@ class NewsCard extends StatefulWidget {
   final NewsArticle article;
   final VoidCallback onTap;
 
-  const NewsCard({Key? key, required this.article, required this.onTap})
-      : super(key: key);
+  const NewsCard({super.key, required this.article, required this.onTap});
 
   @override
   State<NewsCard> createState() => _NewsCardState();
@@ -222,7 +221,7 @@ class _NewsCardState extends State<NewsCard>
       tag: 'news_image_${widget.article.url}',
       child: Stack(
         children: [
-          Container(
+          SizedBox(
             height: 200,
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
